@@ -63,19 +63,54 @@ qemu-system-arm \
   -net nic \
   -net user,hostfwd=tcp::5022-:22 \
   -kernel /full/path/to/kernel-qemu-4.19.50-buster \
-  -append 'root=/dev/sda2 panic=1' \
+  -append 'root=/dev/sda2 panic=1 rw' \
   -dtb /full/path/to/versatile-pb.dtb \
   -no-reboot \
   -display none \
   -serial mon:stdio
 ```
 
+
 After running these commands, the shell where the last command was run will block, and in it, the Raspberry will be running. If you want to keep using the shell from your host
 I recommend using tmux or screen.
 
 Now, to log into the RPI we can use `user: pi` and `password: raspberry`.
 
-Once inside we will be logging in as root by running `sudo su` and start configuring stuff around:
+Once inside we will be logging in as root by running `sudo su` and start configuring stuff around.
+
+The first thing we are going to do is resize the disk so we can use the extra space we added to the image, to install stuff:
+
+```
+# make sure you are running this as root
+fdisk /dev/sda2
+
+# check which partitions exist
+p
+# the command above outputs the partitions, check the start and end for the sda1 partition, and afterwards delete sda2
+d
+2
+# now we will recreate the partition, but using all of the actual free space in the partition
+n
+p
+2
+<end_of_sda1 + 1>
+<use default as it should be end of disk>
+# finally we will write changes to disk
+w
+
+# we will restart now the qemu 
+shutdown now
+./command
+
+# now log in and do sudo su and then resize disk
+resize2fs /dev/sda2
+
+# should say something like "The filesystem on /dev/sda2 is now xxxxxxx blocks long." this is good. Check that the mountpoint / is now bigger
+df -h
+
+```
+
+Now let's get some installing done:
 
 ```
 add-apt-repository ppa:ondrej/php
