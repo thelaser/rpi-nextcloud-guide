@@ -4,22 +4,22 @@ In this guide we will see how to setup Nextcloud in a RaspberryPi, setting up a 
 
 ## Getting the necessary files and installing dependencies
 
-Let's first install all that we will need for this guide:
+Let's first install in the host machine all that we will need for this guide:
 
 SLOW(latest):
 ```
 sudo apt update && sudo apt upgrade -y && sudo apt install -y unzip make git libglib2.0-dev libfdt-dev libpixman-1-dev zlib1g-dev gcc
+git clone git://git.qemu-project.org/qemu.git
+cd qemu
+./configure
+make -j4
+make install
 
 ```
 
 FAST(older version):
 ```
 sudo apt update && sudo apt upgrade -y && sudo apt install -y unzip qemu qemu-kvm qemu-system-arm
-git clone git://git.qemu-project.org/qemu.git
-cd qemu
-./configure
-make
-make install
 
 ```
 
@@ -43,25 +43,21 @@ To do this, we will use QEMU, to emulate a Raspberry in our own computer, and we
 
 We already installed QEMU in the beginning of this guide, so we can go ahead and use it.
 
-Before though, we will have to get the kernel to be used for the emulation. We will do this by cloning a Git repo:
-```
-git clone https://github.com/dhruvvyas90/qemu-rpi-kernel
-
-```
-Once we have the kernels, let's run QEMU:
+In the following command, the kernel is located in the qemu-rpi-kernel folder. This command will start an emulation of the Raspberry within its own shell.
 
 ```
 # Let's add some extra space to the image
 qemu-img resize YYYY-MM-DD-raspbian-buster-lite.img +1G
 
-# Now let us emulate
+# Now let us emulate 
+# the command should be run as root
 qemu-system-arm \
   -M versatilepb \
   -cpu arm1176 \
   -m 256 \
   -hda /full/path/to/YYYY-MM-DD-raspbian-buster-lite.img \
   -net nic \
-  -net user,hostfwd=tcp::5022-:22 \
+  -net user,hostfwd=tcp::2222-:22,hostfwd=tcp::80-:80,hostfwd=tcp::443-:443 \
   -kernel /full/path/to/kernel-qemu-4.19.50-buster \
   -append 'root=/dev/sda2 panic=1 rw' \
   -dtb /full/path/to/versatile-pb.dtb \
@@ -110,6 +106,10 @@ df -h
 
 ```
 
+Let's also enable the ssh service:
+
+``` systemctl enable ssh && systemctl start ssh ```
+
 Now let's get some installing done:
 
 ```
@@ -118,6 +118,34 @@ apt update && apt upgrade
 # this might take a while so grab a coffee or something
 
 # Install nginx, php7.3 and mariadb. The full stack. 
-apt install software-properties-common nginx php7.3-fpm php7.3-common php7.3-mysql php7.3-xml php7.3-xmlrpc php7.3-curl php7.3-gd php7.3-imagick php7.3-cli php7.3-dev php7.3-imap php7.3-mbstring php7.3-opcache php7.3-soap php7.3-zip unzip mariadb-server mariadb-client -y
+apt install software-properties-common nginx php7.3-fpm php7.3-common php7.3-mysql php7.3-xml php7.3-xmlrpc php7.3-curl php7.3-gd php7.3-imagick php7.3-cli php7.3-dev php7.3-imap php7.3-mbstring php7.3-opcache php7.3-soap php7.3-zip unzip mariadb-server mariadb-client vim -y
 
 ```
+
+The nginx installation may fail, this is because nginx tries to start but as ipv6 is apparently not working in the emulation, it crashes. Solution is disable ipv6 in the /etc/nginx/sites-available/default file, but even so, we will not be using the default anyway, and moreover, we will replace the default with a server config of our own to be used for Nextcloud.
+
+Now let's download Nextcloud and set it up:
+
+```
+wget https://download.nextcloud.com/server/releases/latest.zip
+unzip latest.zip 
+mv nextcloud /var/www/
+rm latest.zip
+chown -R www-data:www-data /var/www/nextcloud/
+chmod 700 -R /var/www/nextcloud/
+
+```
+
+
+
+
+
+
+
+
+Post certificate creation hooks to add path to certificates in nginx server config file for Nextcloud:
+```
+# example
+sed -i 's/listen \[::]:80 default_server;/#listen \[::]:80 default_server;/' /etc/nginx/sites-available/default
+```
+
